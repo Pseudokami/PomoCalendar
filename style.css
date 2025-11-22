@@ -44,7 +44,7 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
 }
 
-/* Custom style for the overall app container */
+/* Custom style for the overall app container - FIXES LAYOUT BREAKDOWN */
 .app-container {
     min-height: 100vh;
     display: grid;

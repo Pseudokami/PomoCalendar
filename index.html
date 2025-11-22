@@ -20,11 +20,11 @@
                         
                         // --- MATCHA PALETTE (Long Break) ---
                         'matcha-primary': '#84B45C', // Soft Green (main accent)
-                        'matcha-light': '#EDF3EA',   // Very Light Green (app background)
+                        'matcha-light': '#EDF3EA',   // Very Light Green (app background)
 
                         // --- NEW BLUE PALETTE (Short Break) ---
                         'blue-primary': '#60A5FA', // Soft Blue (main accent)
-                        'blue-light': '#E0F2FE',   // Very Light Blue (app background)
+                        'blue-light': '#E0F2FE',   // Very Light Blue (app background)
 
                         // --- GENERAL COLORS ---
                         'accent-color': '#FFFFFF', // White
@@ -126,6 +126,13 @@
                 </div>
                 
                 <div id="focused-task" class="text-center mt-2 text-sm font-semibold text-primary-color/80 h-5"></div>
+                
+                <div class="text-center mt-3">
+                    <button id="skip-button" onclick="skipTimer()" class="hidden text-xs font-medium text-gray-medium hover:text-dark-text transition">
+                        Skip to Next Phase &gt;&gt;
+                    </button>
+                </div>
+                
             </div>
 
             <section class="w-full max-w-xl mt-10">

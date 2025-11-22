@@ -31,6 +31,9 @@ const modalContainer = document.getElementById('modal-container');
 const modalTitle = document.getElementById('modal-title');
 const modalMessage = document.getElementById('modal-message');
 
+// NEW: Skip Button DOM Element
+const skipButton = document.getElementById('skip-button');
+
 // Body element for theme switching
 const appBody = document.getElementById('app-body');
 
@@ -321,7 +324,7 @@ function setTheme(mode) {
     // 2. Apply the specific theme based on mode
     if (mode === 'longBreak') {
         appBody.classList.add('matcha-theme');
-    } else if (mode === 'shortBreak') { // NEW: Apply blue theme for Short Break
+    } else if (mode === 'shortBreak') { // Apply blue theme for Short Break
         appBody.classList.add('blue-theme');
     } 
     // Default (pomodoro) needs no class.
@@ -339,6 +342,9 @@ function switchMode(mode, customDurationMinutes = null) {
     clearInterval(timerInterval);
     isRunning = false;
     currentMode = mode;
+    
+    // HIDE SKIP BUTTON
+    skipButton.classList.add('hidden'); // Ensure button is hidden when resetting mode time
 
     let durationSeconds = TIMER_DURATIONS[mode];
 
@@ -359,7 +365,7 @@ function switchMode(mode, customDurationMinutes = null) {
 
     timeLeft = durationSeconds;
 
-    // Apply the theme change BEFORE updating UI elements
+    // Apply the theme change BEFORE updating UI elements (ADDED CALL)
     setTheme(mode); 
 
     // Update UI elements
@@ -396,6 +402,9 @@ function toggleTimer() {
         isRunning = false;
         startButton.textContent = 'RESUME';
         startButton.classList.remove('animate-pulse');
+        
+        // CORRECTION: Keep skip button visible when paused
+        skipButton.classList.remove('hidden'); 
         return;
     }
 
@@ -426,6 +435,9 @@ function toggleTimer() {
     isRunning = true;
     startButton.textContent = 'PAUSE';
     startButton.classList.remove('animate-pulse');
+    
+    // SHOW SKIP BUTTON
+    skipButton.classList.remove('hidden'); 
 
     timerInterval = setInterval(() => {
         timeLeft--;
@@ -443,6 +455,9 @@ function resetTimer() {
     clearInterval(timerInterval);
     isRunning = false;
     activeTaskId = null; // Clear any active task
+    
+    // HIDE SKIP BUTTON
+    skipButton.classList.add('hidden');
 
     // Call switchMode to reset the time, UI, and state for the current mode
     switchMode(currentMode, null);
@@ -454,6 +469,9 @@ function resetTimer() {
 function handleTimerEnd() {
     clearInterval(timerInterval);
     isRunning = false;
+
+    // HIDE SKIP BUTTON
+    skipButton.classList.add('hidden');
 
     // Simple sound notification (a quick sine wave beep, synthesized)
     const audio = new Audio('data:audio/wav;base64,UklGRqj4AABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAAABkYXRh4qj3AAAI');
@@ -489,6 +507,19 @@ function handleTimerEnd() {
     startButton.classList.add('animate-pulse');
 }
 
+/** NEW: Immediately ends the current timer phase. */
+function skipTimer() {
+    // CORRECTION: Use timeLeft = 1 to trigger the end cleanly on the next interval tick.
+    if (!isRunning && timeLeft === TIMER_DURATIONS[currentMode]) {
+         showModal('Timer Stopped', 'The timer is not running. Press START/RESUME first.');
+         return;
+    }
+    
+    timeLeft = 1; 
+    updateDisplay();
+}
+
+
 // --- Initialization ---
 window.onload = function () {
     // Setup mode tab click handlers
@@ -512,6 +543,7 @@ window.onload = function () {
     window.startTaskFocus = startTaskFocus;
     window.toggleTaskDone = toggleTaskDone;
     window.deleteTask = deleteTask;
+    window.skipTimer = skipTimer; // NEW: Make skipTimer globally accessible
 
     // Set default date for task input and calendar
     newTaskDate.value = selectedDateString;
