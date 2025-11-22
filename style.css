@@ -1,0 +1,205 @@
+/* Custom styles for the timer display */
+#timer-display {
+    font-size: 6rem; /* Large font size for the clock */
+    font-weight: 900;
+    line-height: 1;
+    text-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Custom calendar styles (Standard CSS replacement for @apply) */
+.calendar-day {
+    color: #1F2937; /* dark-text */
+    font-weight: 600;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 150ms ease-in-out;
+}
+.calendar-day:hover {
+    background-color: rgba(196, 181, 253, 0.5); /* secondary-accent/50 */
+}
+.calendar-day.selected {
+    background-color: #6D28D9; /* primary-color */
+    color: white;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+.calendar-day.has-tasks {
+    border: 2px solid #EF4444; /* red-500 */
+}
+
+/* --- Mode Tabs Styling FIX (Standard CSS replacement for @apply) --- */
+.mode-tab {
+    padding: 10px 20px; /* py-2.5 px-5 */
+    border-radius: 9999px; /* rounded-full */
+    cursor: pointer;
+    transition: all 200ms ease-in-out;
+    font-weight: 500;
+    color: #1F2937; /* dark-text */
+    background-color: #E5E7EB; /* gray-200 */
+    text-align: center;
+}
+.mode-tab.active {
+    background-color: #6D28D9; /* primary-color */
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+}
+
+/* Custom style for the overall app container */
+.app-container {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr;
+}
+@media (min-width: 768px) {
+    .app-container {
+        /* Left (Calendar) takes 1 column, Right (Timer/Tasks) takes 2 columns */
+        grid-template-columns: 1fr 2fr;
+    }
+}
+
+/* Pulse animation for the start button */
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+#start-button {
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+/* --- Dynamic Theme Styling for Short Break (Pastel Blue) --- */
+
+body.blue-theme {
+    background-color: #E0F2FE !important; /* blue-light */
+}
+
+/* Timer Card Overrides */
+body.blue-theme #timer-heading {
+    color: #60A5FA; /* blue-primary */
+}
+body.blue-theme #start-button {
+    background-color: #60A5FA; /* blue-primary */
+}
+body.blue-theme #reset-button {
+    background-color: #4B5563; 
+}
+body.blue-theme .mode-tab.active {
+    background-color: #60A5FA !important; /* blue-primary */
+}
+
+/* Calendar Overrides */
+body.blue-theme .calendar-day:hover {
+    /* Use a semi-transparent version of blue-primary for hover effect */
+    background-color: rgba(96, 165, 250, 0.3) !important; 
+}
+
+body.blue-theme .calendar-day.selected {
+    /* Selected day uses blue-primary background */
+    background-color: #60A5FA !important; 
+    color: white !important; 
+    box-shadow: 0 10px 15px -3px rgba(96, 165, 250, 0.3), 0 4px 6px -2px rgba(96, 165, 250, 0.2) !important;
+}
+
+/* Highlight today border (uses border-primary-color) */
+body.blue-theme .calendar-day.border-primary-color {
+    border-color: #60A5FA !important; /* blue-primary */
+}
+
+/* Task Input Area Overrides */
+body.blue-theme #task-input-area {
+    /* Use a light semi-transparent blue for the container background */
+    background-color: rgba(96, 165, 250, 0.15) !important; 
+}
+
+body.blue-theme #task-input-area h3 {
+    color: #1F2937 !important; /* dark-text */
+}
+body.blue-theme #task-input-area button {
+    /* Save button uses blue-primary */
+    background-color: #60A5FA !important;
+    color: white !important;
+}
+
+body.blue-theme #task-input-area input:focus {
+    /* Override tailwind focus/ring classes on inputs */
+    border-color: #60A5FA !important;
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.4) !important; /* Custom ring shadow */
+}
+
+/* Task Checkbox Overrides (for checked state) */
+body.blue-theme .task-checkbox:checked {
+    background-color: #60A5FA !important;
+    border-color: #60A5FA !important;
+}
+body.blue-theme .task-checkbox:focus {
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.4) !important;
+}
+
+
+/* --- Dynamic Theme Styling for Long Break (Pastel Matcha) --- */
+
+body.matcha-theme {
+    background-color: #EDF3EA !important; /* matcha-light - UPDATED */
+}
+
+/* Timer Card Overrides */
+body.matcha-theme #timer-heading {
+    color: #84B45C; /* matcha-primary - UPDATED */
+}
+body.matcha-theme #start-button {
+    background-color: #84B45C; /* matcha-primary - UPDATED */
+}
+body.matcha-theme #reset-button {
+    background-color: #4B5563; 
+}
+body.matcha-theme .mode-tab.active {
+    background-color: #84B45C !important; /* matcha-primary - UPDATED */
+}
+
+/* Calendar Overrides */
+body.matcha-theme .calendar-day:hover {
+    /* NEW RGB: 132, 180, 92 */
+    background-color: rgba(132, 180, 92, 0.3) !important; /* matcha-primary/30 - UPDATED */
+}
+
+body.matcha-theme .calendar-day.selected {
+    background-color: #84B45C !important; /* UPDATED */
+    color: #1F2937 !important; /* dark-text */
+    /* NEW RGB: 132, 180, 92 */
+    box-shadow: 0 10px 15px -3px rgba(132, 180, 92, 0.3), 0 4px 6px -2px rgba(132, 180, 92, 0.2) !important; /* UPDATED */
+}
+
+/* Highlight today border */
+body.matcha-theme .calendar-day.border-primary-color {
+    border-color: #84B45C !important; /* matcha-primary - UPDATED */
+}
+
+/* Task Input Area Overrides */
+body.matcha-theme #task-input-area {
+    /* NEW RGB: 132, 180, 92 */
+    background-color: rgba(132, 180, 92, 0.15) !important; /* matcha-primary/15 - UPDATED */
+}
+
+body.matcha-theme #task-input-area h3 {
+    color: #1F2937 !important; /* dark-text */
+}
+body.matcha-theme #task-input-area button {
+    background-color: #84B45C !important; /* UPDATED */
+    color: white !important;
+}
+
+body.matcha-theme #task-input-area input:focus {
+    border-color: #84B45C !important; /* UPDATED */
+    /* NEW RGB: 132, 180, 92 */
+    box-shadow: 0 0 0 3px rgba(132, 180, 92, 0.4) !important; /* Custom ring shadow - UPDATED */
+}
+
+/* Task Checkbox Overrides (for checked state) */
+body.matcha-theme .task-checkbox:checked {
+    background-color: #84B45C !important; /* UPDATED */
+    border-color: #84B45C !important; /* UPDATED */
+}
+body.matcha-theme .task-checkbox:focus {
+    /* NEW RGB: 132, 180, 92 */
+    box-shadow: 0 0 0 3px rgba(132, 180, 92, 0.4) !important; /* UPDATED */
+}

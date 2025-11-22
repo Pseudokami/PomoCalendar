@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PomoFocus Calendar & Timer</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // --- VIOLET PALETTE (Default - Pomodoro) ---
+                        'primary-color': '#6D28D9', // Deep Violet (main accent)
+                        'secondary-accent': '#C4B5FD', // Light Violet (subtle backgrounds/hovers)
+                        
+                        // --- MATCHA PALETTE (Long Break) ---
+                        'matcha-primary': '#84B45C', // Soft Green (main accent)
+                        'matcha-light': '#EDF3EA',   // Very Light Green (app background)
+
+                        // --- NEW BLUE PALETTE (Short Break) ---
+                        'blue-primary': '#60A5FA', // Soft Blue (main accent)
+                        'blue-light': '#E0F2FE',   // Very Light Blue (app background)
+
+                        // --- GENERAL COLORS ---
+                        'accent-color': '#FFFFFF', // White
+                        'timer-card': 'rgba(255, 255, 255, 0.95)', // Near-white card
+                        'timer-active-button': '#FFFFFF', 
+                        'app-bg': '#F9FAFB', // Very Light Gray/Off-white background
+                        'dark-text': '#1F2937', // Very dark text
+                        'gray-medium': '#4B5563', // Gray-600 for secondary text
+                        // ------------------------
+                    },
+                    fontFamily: {
+                        sans: ['Montserrat', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <link rel="stylesheet" href="style.css">
+    
+</head>
+<body class="bg-app-bg font-sans text-dark-text" id="app-body">
+
+    <div class="app-container">
+
+        <aside class="bg-white p-6 md:p-8 shadow-xl border-r border-gray-200">
+            
+            <header class="pb-6 border-b border-gray-200 mb-6 flex items-center space-x-4">
+                <div class="p-3 bg-secondary-accent/50 rounded-full"> 
+                    <svg class="w-6 h-6 text-primary-color" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-dark-text">Welcome Back!</h1>
+                    <p class="text-sm text-gray-medium">Focus Mode Ready</p>
+                </div>
+            </header>
+
+            <div class="calendar-wrapper">
+                <div class="flex justify-between items-center mb-4">
+                    <button onclick="changeMonth(-1)" class="p-2 rounded-full hover:bg-gray-100 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    </button>
+                    <h2 id="month-year-display" class="text-xl font-bold">Month Year</h2>
+                    <button onclick="changeMonth(1)" class="p-2 rounded-full hover:bg-gray-100 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-7 text-center text-sm font-medium text-gray-medium mb-2">
+                    <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                </div>
+
+                <div id="calendar-grid" class="grid grid-cols-7 gap-1.5 text-center">
+                    </div>
+            </div>
+
+            <div id="task-input-area" class="mt-6 p-4 bg-secondary-accent/20 rounded-xl shadow-inner">
+                <h3 class="font-bold mb-3 text-primary-color">Assign New Task</h3>
+                <input id="new-task-title" type="text" placeholder="Task Title (e.g., Thesis Chapter 1)" class="w-full p-2 rounded-lg text-dark-text border border-gray-300 focus:ring-primary-color focus:border-primary-color outline-none mb-3 text-sm">
+                
+                <div class="flex space-x-3 mb-3">
+                    <input id="new-task-date" type="date" title="Due Date" class="w-1/2 p-2 rounded-lg text-dark-text border border-gray-300 focus:ring-primary-color focus:border-primary-color outline-none text-sm">
+                    <input id="new-task-duration" type="number" placeholder="Duration (mins)" title="Estimated Duration in Minutes" value="50" min="10" step="5" class="w-1/2 p-2 rounded-lg text-dark-text border border-gray-300 focus:ring-primary-color focus:border-primary-color outline-none text-sm">
+                </div>
+
+                <button onclick="addTask()" class="w-full text-sm font-medium py-2 px-4 rounded-lg bg-primary-color text-white hover:opacity-90 transition">
+                    Save Task to <span id="selected-date-display">Today</span>
+                </button>
+            </div>
+            
+        </aside>
+        
+        <main class="p-6 md:p-8 flex flex-col items-center">
+            
+            <div class="w-full max-w-lg p-6 sm:p-10 rounded-xl shadow-2xl bg-timer-card backdrop-blur-sm border border-gray-200">
+                <h2 class="text-3xl font-extrabold text-center mb-6 text-primary-color" id="timer-heading">Pomodoro Timer</h2>
+
+                <div id="mode-tabs" class="flex justify-center space-x-2 p-1.5 rounded-full bg-gray-100 mx-auto w-fit mb-6">
+                    <div id="pomodoro-tab" data-mode="pomodoro" class="mode-tab active flex items-center justify-center min-w-32">Pomodoro</div>
+                    <div id="short-break-tab" data-mode="shortBreak" class="mode-tab flex items-center justify-center min-w-32">Short Break</div>
+                    <div id="long-break-tab" data-mode="longBreak" class="mode-tab flex items-center justify-center min-w-32">Long Break</div>
+                </div>
+
+                <div id="timer-display" class="text-center cursor-pointer select-none text-dark-text" onclick="toggleTimer()">25:00</div>
+
+                <div class="flex justify-center mt-6 space-x-4">
+                    <button id="start-button" onclick="toggleTimer()" class="w-1/2 text-xl font-black tracking-widest bg-primary-color text-white uppercase py-4 px-6 rounded-lg shadow-xl hover:shadow-2xl hover:opacity-90 transition duration-150 transform active:scale-95 border-none">
+                        START
+                    </button>
+                    <button id="reset-button" onclick="resetTimer()" class="w-1/2 flex items-center justify-center space-x-2 text-xl font-black tracking-widest bg-gray-500 text-white uppercase py-4 px-6 rounded-lg shadow-xl hover:shadow-2xl hover:bg-gray-700 transition duration-150 transform active:scale-95 border-none" title="Reset Timer">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11.335 4.5c-.792 2.659-3.411 4.5-6.335 4.5-4.418 0-8-3.582-8-8 0-1.847.643-3.555 1.748-4.908"></path></svg>
+                        <span>RESET</span>
+                    </button>
+                </div>
+                
+                <div class="text-center mt-4 text-sm font-medium text-gray-medium select-none">
+                    <span id="cycle-count">#1</span>
+                    <span id="status-message">Select a task from the list below to begin.</span>
+                </div>
+                
+                <div id="focused-task" class="text-center mt-2 text-sm font-semibold text-primary-color/80 h-5"></div>
+            </div>
+
+            <section class="w-full max-w-xl mt-10">
+                <h2 class="text-2xl font-bold mb-4">Tasks for <span id="current-task-filter-date">Today</span></h2>
+                
+                <hr class="border-t border-gray-300 mb-6">
+                
+                <div id="task-list" class="space-y-3">
+                    <p class="text-center text-gray-medium pt-4" id="loading-indicator">No tasks scheduled for this day. Click a date on the calendar to view others!</p>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <div id="modal-container" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-dark-text">
+            <h3 id="modal-title" class="text-xl font-bold mb-3">Timer Finished!</h3>
+            <p id="modal-message">Time for a break!</p>
+            <div class="flex justify-end mt-4">
+                <button onclick="closeModal()" class="bg-primary-color text-white py-2 px-4 rounded-lg hover:opacity-90 transition">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
