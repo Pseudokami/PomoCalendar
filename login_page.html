@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Login</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        // Custom configuration to define the color palette from the design
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-purple': '#5A4CFF', // The vibrant purple accent
+                        'soft-white': '#FFFFFF', // Clean card background
+                        'dark-text': '#1F2937', // A dark gray for text
+                        'light-bg': '#F9FAFB', // Very light gray background
+                        'placeholder-gray': '#D1D5DB', // Input border/placeholder color
+                        'success-light': '#D1FAE5', // Custom soft green background for success messages
+                        'success-dark': '#065F46',  // Custom dark green text for success messages
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Use Inter font globally */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: theme('colors.light-bg');
+        }
+        /* Custom focus ring to match the primary purple accent */
+        .input-focus-ring:focus {
+            border-color: theme('colors.primary-purple');
+            box-shadow: 0 0 0 3px rgba(90, 76, 255, 0.4);
+            outline: none;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4 sm:p-6">
+
+    <!-- Login Card Container -->
+    <div id="login-card" class="w-full max-w-sm bg-soft-white rounded-xl shadow-2xl p-8 sm:p-10 transition-all duration-300 transform scale-100 hover:shadow-3xl">
+
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <svg class="mx-auto h-10 w-10 text-primary-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <!-- A simple focus icon (target/bullseye) -->
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.97l-1.428-.865A4 4 0 0013 4v.056l.872.483a3 3 0 011.668 2.302h-.1l-.1 0a4 4 0 00-4 4v3" />
+            </svg>
+            <h1 class="mt-4 text-3xl font-extrabold text-dark-text tracking-tight">
+                Welcome Back!
+            </h1>
+            <p class="mt-2 text-sm text-gray-500">
+                Sign in to your Focus Mode account.
+            </p>
+        </header>
+
+        <!-- Login Form -->
+        <form onsubmit="handleLogin(event)">
+            <div class="space-y-4">
+                <!-- Email Input -->
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email address</label>
+                    <input type="email" id="email" name="email" required placeholder="name@example.com"
+                           class="w-full px-4 py-2 border border-placeholder-gray rounded-lg text-dark-text placeholder-gray-400 transition duration-150 input-focus-ring">
+                </div>
+
+                <!-- Password Input -->
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="password" name="password" required placeholder="••••••••"
+                           class="w-full px-4 py-2 border border-placeholder-gray rounded-lg text-dark-text placeholder-gray-400 transition duration-150 input-focus-ring">
+                </div>
+            </div>
+
+            <!-- Remember Me / Forgot Password -->
+            <div class="flex items-center justify-between mt-6">
+                <div class="flex items-center">
+                    <input id="remember-me" name="remember-me" type="checkbox"
+                           class="h-4 w-4 text-primary-purple border-gray-300 rounded focus:ring-primary-purple">
+                    <label for="remember-me" class="ml-2 block text-sm text-gray-900">
+                        Remember me
+                    </label>
+                </div>
+
+                <div class="text-sm">
+                    <a href="#" class="font-medium text-primary-purple hover:text-opacity-80 transition duration-150">
+                        Forgot password?
+                    </a>
+                </div>
+            </div>
+
+            <!-- Login Button -->
+            <div class="mt-6">
+                <button type="submit"
+                        class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-base font-medium text-white bg-primary-purple hover:bg-opacity-90 transition duration-300 focus:outline-none focus:ring-4 focus:ring-primary-purple focus:ring-opacity-50 active:scale-[.99] transform">
+                    Log in
+                </button>
+            </div>
+        </form>
+
+        <!-- Message Box (for feedback instead of alert) -->
+        <div id="message-box" class="mt-6 p-3 bg-red-100 text-red-700 border border-red-300 rounded-lg hidden transition-all duration-300 text-sm">
+            <!-- Message will be displayed here -->
+        </div>
+
+        <!-- Signup Link -->
+        <p class="mt-8 text-center text-sm text-gray-600">
+            Don't have an account?
+            <a href="#" class="font-medium text-primary-purple hover:text-opacity-80 transition duration-150">
+                Sign up
+            </a>
+        </p>
+    </div>
+
+    <script>
+        const handleLogin = (event) => {
+            event.preventDefault(); // Stop the form from submitting normally
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const messageBox = document.getElementById('message-box');
+
+            // Simple validation and success/error feedback 
+            if (email && password) {
+                // Simulate a successful login attempt, using custom success colors
+                showMessageBox('Login successful! Redirecting...', 'bg-success-light', 'text-success-dark', 'border-success-dark');
+                
+                // Simulate redirect after 2 seconds
+                setTimeout(() => {
+                    messageBox.classList.add('hidden');
+                    // In a real app: window.location.href = '/dashboard'; 
+                }, 2000);
+
+            } else {
+                // Error message uses standard red for high visibility
+                showMessageBox('Please enter both email and password.', 'bg-red-100', 'text-red-700', 'border-red-300');
+            }
+        };
+
+        const showMessageBox = (message, bgColor, textColor, borderColor) => {
+            const messageBox = document.getElementById('message-box');
+            
+            // Reset classes
+            messageBox.className = 'mt-6 p-3 rounded-lg transition-all duration-300 text-sm';
+            
+            // Apply new classes
+            messageBox.classList.add(bgColor, textColor, borderColor);
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden');
+        };
+
+        // Add a slight tilt effect on hover to emphasize the card
+        document.addEventListener('DOMContentLoaded', () => {
+            const card = document.getElementById('login-card');
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = (e.clientX - rect.left) / rect.width - 0.5; // -0.5 to 0.5
+                const y = (e.clientY - rect.top) / rect.height - 0.5; // -0.5 to 0.5
+                
+                const rotateX = -y * 5; // Max 5 degrees tilt up/down
+                const rotateY = x * 5;  // Max 5 degrees tilt left/right
+
+                card.style.transform = `perspective(1000px) scale(1.02) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+            });
+
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'perspective(1000px) scale(1) rotateX(0deg) rotateY(0deg)';
+            });
+        });
+    </script>
+</body>
+</html>
