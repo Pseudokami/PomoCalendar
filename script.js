@@ -1,5 +1,4 @@
 // --- Supabase Config ---
-// REPLACE THESE WITH YOUR ACTUAL KEYS FROM SUPABASE DASHBOARD
 const SUPABASE_URL = 'https://zgecgmpkjwsoesomzqfs.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnZWNnbXBrandzb2Vzb216cWZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NjAxMzEsImV4cCI6MjA4MDIzNjEzMX0.itaV4d8e2pHoWF4pQYroFepV5sSEPzpNPKAX_zcORCI';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -22,7 +21,6 @@ let currentUser = null;
 
 let globalTasks = []; 
 
-// FIX: Generate Today's date string using Local Time (not ISO/UTC)
 let currentDate = new Date(); 
 let selectedDateString = getLocalDateString(new Date());
 
@@ -44,19 +42,16 @@ const appBody = document.getElementById('app-body');
 
 
 // --- Utility Functions ---
-
-// NEW HELPER: manually build YYYY-MM-DD from local date to avoid timezone shifts
 function getLocalDateString(date) {
     const year = date.getFullYear();
-    const month = date.getMonth() + 1; // getMonth is 0-indexed
+    const month = date.getMonth() + 1; 
     const day = date.getDate();
     return `${year}-${pad(month)}-${pad(day)}`;
 }
 
 function formatDate(dateString) {
-    // Manually parse the YYYY-MM-DD string to ensure we stay in Local Time
     const [y, m, d] = dateString.split('-').map(Number);
-    const date = new Date(y, m - 1, d); // Construct date at 00:00 Local Time
+    const date = new Date(y, m - 1, d); 
     
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -76,7 +71,6 @@ function pad(number) {
 
 
 // --- Clock Functions ---
-
 function displayCurrentClock() {
     const now = new Date();
     timerDisplay.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
@@ -96,7 +90,6 @@ function stopClock() {
 
 
 // --- Modal Functions ---
-
 function closeModal() {
     modalContainer.classList.add('hidden');
     modalContainer.classList.remove('flex');
@@ -111,7 +104,6 @@ function showModal(title, message) {
 
 
 // --- SUPABASE TASK LOGIC ---
-
 async function fetchTasks() {
     if (!currentUser) return;
 
@@ -142,10 +134,34 @@ async function addTask() {
     const newTaskDuration = document.getElementById('new-task-duration');
     const title = newTaskTitle.value.trim();
     const date = newTaskDate.value;
-    const duration = parseInt(newTaskDuration.value);
 
-    if (title === '' || date === '' || duration < 1) {
-        showModal('Input Error', 'Please enter a title, valid date, and duration.');
+    // --- STRICT VALIDATION ---
+    if (newTaskDuration.validity.badInput) {
+        showModal('Input Error', 'Please only input integers!');
+        return;
+    }
+
+    const durationInputStr = newTaskDuration.value.trim();
+    let duration = 25; // Default
+
+    if (durationInputStr !== '') {
+        if (!/^\d+$/.test(durationInputStr)) {
+            showModal('Input Error', 'Please only input integers!');
+            return;
+        }
+
+        const durationNum = parseInt(durationInputStr, 10);
+
+        if (durationNum < 1) {
+            showModal('Input Error', 'Please only input positive integers!');
+            return;
+        }
+
+        duration = (durationNum > 999) ? 999 : durationNum;
+    }
+
+    if (title === '' || date === '') {
+        showModal('Input Error', 'Please enter a title and valid date.');
         return;
     }
 
@@ -177,7 +193,7 @@ async function addTask() {
     }
 
     newTaskTitle.value = '';
-    newTaskDuration.value = '50';
+    newTaskDuration.value = ''; 
 }
 
 async function toggleTaskDone(taskId, completed) {
@@ -207,6 +223,40 @@ async function deleteTask(taskId) {
         .eq('id', taskId);
         
     if (error) console.error('Error deleting task:', error);
+}
+
+async function clearFinishedTasks() {
+    if (!currentUser) return;
+
+    // Check if there are actually any completed tasks to delete
+    const completedCount = globalTasks.filter(t => t.completed).length;
+    if (completedCount === 0) {
+        showModal('No Tasks', 'You have no finished tasks to clear.');
+        return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${completedCount} finished task(s)? This cannot be undone.`)) {
+        return;
+    }
+
+    // Optimistic Update: Remove from local array immediately
+    globalTasks = globalTasks.filter(t => !t.completed);
+    
+    // Refresh UI
+    renderTasksForSelectedDate();
+    renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+
+    // Batch Delete from Supabase
+    const { error } = await supabaseClient
+        .from('tasks')
+        .delete()
+        .eq('completed', true)
+        .eq('user_id', currentUser.id); // Extra safety check
+
+    if (error) {
+        console.error('Error clearing tasks:', error);
+        showModal('Error', 'Failed to delete some tasks from the database.');
+    }
 }
 
 function renderTasksForSelectedDate() {
@@ -258,7 +308,6 @@ function renderTasksForSelectedDate() {
 
 
 // --- Calendar Functions ---
-
 function changeMonth(delta) {
     currentDate.setMonth(currentDate.getMonth() + delta);
     renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
@@ -285,9 +334,13 @@ function renderCalendar(year, month) {
 
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    const todayString = getLocalDateString(new Date()); // FIX: Use manual local date
+    const todayString = getLocalDateString(new Date()); 
     
-    const taskDates = new Set(globalTasks.map(t => t.date));
+    const activeTaskDates = new Set(
+        globalTasks
+        .filter(t => !t.completed) // Keep only incomplete tasks
+        .map(t => t.date)
+    );
 
     display.textContent = firstDay.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
@@ -297,14 +350,14 @@ function renderCalendar(year, month) {
     }
 
     for (let i = 1; i <= lastDay.getDate(); i++) {
-        // FIX: Manually construct date string to avoid timezone shifts (toISOString bug)
         const dateString = `${year}-${pad(month + 1)}-${pad(i)}`;
         
         const dayCell = document.createElement('div');
         dayCell.textContent = i;
         dayCell.className = 'calendar-day relative aspect-square flex items-center justify-center';
 
-        if (taskDates.has(dateString)) dayCell.classList.add('has-tasks');
+        if (activeTaskDates.has(dateString)) dayCell.classList.add('has-tasks');
+        
         if (dateString === todayString) dayCell.classList.add('border-2', 'border-primary-color'); 
         if (dateString === selectedDateString) dayCell.classList.add('selected');
 
@@ -315,7 +368,6 @@ function renderCalendar(year, month) {
 
 
 // --- Core Timer Functions ---
-
 function updateDisplay() {
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
@@ -380,9 +432,6 @@ function startTaskFocus(taskId, durationMinutes, title) {
 }
 
 function toggleTimer() {
-    const clickSound = new Audio('assets/button-click.wav'); 
-    clickSound.currentTime = 0; // Rewind sound to ensure rapid clicks work
-    clickSound.play().catch(e => console.log("Audio play failed", e));
     if (isRunning) {
         clearInterval(timerInterval);
         isRunning = false;
@@ -458,7 +507,6 @@ function skipTimer() {
 
 
 // --- Initialization ---
-
 async function checkSession() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     
@@ -516,4 +564,11 @@ window.onload = function () {
 
     renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
     checkSession();
+
+    // --- INJECT: Clear Finished Tasks Button (Persistent & Floating) ---
+    const clearBtn = document.createElement('button');
+    clearBtn.innerText = 'Clear ALL Finished Tasks';
+    clearBtn.className = 'fixed bottom-6 right-6 bg-red-500 text-white font-bold py-3 px-6 rounded-full shadow-2xl hover:bg-red-600 transition z-50 hover:scale-105 active:scale-95 flex items-center shadow-red-500/20';
+    clearBtn.onclick = clearFinishedTasks;
+    document.body.appendChild(clearBtn);
 };
