@@ -21,6 +21,7 @@ let currentUser = null;
 
 let globalTasks = []; 
 
+// Generate Today's date string using Local Time (not ISO/UTC)
 let currentDate = new Date(); 
 let selectedDateString = getLocalDateString(new Date());
 
@@ -165,6 +166,18 @@ async function addTask() {
         return;
     }
 
+    // Checks if task with same name exists on the same date (case-insensitive)
+    const isDuplicate = globalTasks.some(t => 
+        t.title.toLowerCase() === title.toLowerCase() && 
+        t.date === date
+    );
+
+    if (isDuplicate) {
+        showModal('Input Error', 'Task already exists!');
+        return;
+    }
+
+
     const tempTask = {
         id: 'temp-' + Date.now(),
         user_id: currentUser.id,
@@ -225,10 +238,10 @@ async function deleteTask(taskId) {
     if (error) console.error('Error deleting task:', error);
 }
 
+// --- Clear All Finished Tasks ---
 async function clearFinishedTasks() {
     if (!currentUser) return;
 
-    // Check if there are actually any completed tasks to delete
     const completedCount = globalTasks.filter(t => t.completed).length;
     if (completedCount === 0) {
         showModal('No Tasks', 'You have no finished tasks to clear.');
@@ -239,19 +252,16 @@ async function clearFinishedTasks() {
         return;
     }
 
-    // Optimistic Update: Remove from local array immediately
     globalTasks = globalTasks.filter(t => !t.completed);
     
-    // Refresh UI
     renderTasksForSelectedDate();
     renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
 
-    // Batch Delete from Supabase
     const { error } = await supabaseClient
         .from('tasks')
         .delete()
         .eq('completed', true)
-        .eq('user_id', currentUser.id); // Extra safety check
+        .eq('user_id', currentUser.id);
 
     if (error) {
         console.error('Error clearing tasks:', error);
@@ -336,9 +346,10 @@ function renderCalendar(year, month) {
     const lastDay = new Date(year, month + 1, 0);
     const todayString = getLocalDateString(new Date()); 
     
+    // Only highlight days with INCOMPLETE tasks
     const activeTaskDates = new Set(
         globalTasks
-        .filter(t => !t.completed) // Keep only incomplete tasks
+        .filter(t => !t.completed) 
         .map(t => t.date)
     );
 
@@ -565,9 +576,9 @@ window.onload = function () {
     renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
     checkSession();
 
-    // --- INJECT: Clear Finished Tasks Button (Persistent & Floating) ---
+    // Clear Finished Tasks Button
     const clearBtn = document.createElement('button');
-    clearBtn.innerText = 'Clear ALL Finished Tasks';
+    clearBtn.innerText = 'Clear Finished Tasks';
     clearBtn.className = 'fixed bottom-6 right-6 bg-red-500 text-white font-bold py-3 px-6 rounded-full shadow-2xl hover:bg-red-600 transition z-50 hover:scale-105 active:scale-95 flex items-center shadow-red-500/20';
     clearBtn.onclick = clearFinishedTasks;
     document.body.appendChild(clearBtn);
