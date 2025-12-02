@@ -1,10 +1,15 @@
+// --- Supabase Config ---
+// REPLACE THESE WITH YOUR ACTUAL KEYS FROM SUPABASE DASHBOARD
+const SUPABASE_URL = 'https://zgecgmpkjwsoesomzqfs.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnZWNnbXBrandzb2Vzb216cWZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NjAxMzEsImV4cCI6MjA4MDIzNjEzMX0.itaV4d8e2pHoWF4pQYroFepV5sSEPzpNPKAX_zcORCI';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // --- Global Constants & State ---
 const TIMER_DURATIONS = {
-    pomodoro: 1500, // 25 minutes
-    shortBreak: 300, // 5 minutes
-    longBreak: 900 // 15 minutes
+    pomodoro: 1500, // 25 min
+    shortBreak: 300, 
+    longBreak: 900
 };
-const TASKS_KEY = 'pomo_tasks_v2'; // Key for localStorage
 
 let currentMode = 'pomodoro';
 let timeLeft = TIMER_DURATIONS[currentMode];
@@ -13,9 +18,13 @@ let clockInterval = null;
 let isRunning = false;
 let cycle = 1;
 let activeTaskId = null;
+let currentUser = null; 
 
-let currentDate = new Date(); // Tracks the currently displayed calendar month
-let selectedDateString = new Date().toISOString().split('T')[0]; // Tracks the selected day (YYYY-MM-DD)
+let globalTasks = []; 
+
+// FIX: Generate Today's date string using Local Time (not ISO/UTC)
+let currentDate = new Date(); 
+let selectedDateString = getLocalDateString(new Date());
 
 // --- DOM Elements ---
 const timerDisplay = document.getElementById('timer-display');
@@ -30,63 +39,63 @@ const taskFilterDateDisplay = document.getElementById('current-task-filter-date'
 const modalContainer = document.getElementById('modal-container');
 const modalTitle = document.getElementById('modal-title');
 const modalMessage = document.getElementById('modal-message');
-
-// NEW: Skip Button DOM Element
 const skipButton = document.getElementById('skip-button');
-
-// Body element for theme switching
 const appBody = document.getElementById('app-body');
 
 
 // --- Utility Functions ---
 
-/** Formats a date string (YYYY-MM-DD) into a readable format. */
+// NEW HELPER: manually build YYYY-MM-DD from local date to avoid timezone shifts
+function getLocalDateString(date) {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // getMonth is 0-indexed
+    const day = date.getDate();
+    return `${year}-${pad(month)}-${pad(day)}`;
+}
+
 function formatDate(dateString) {
-    const date = new Date(dateString + 'T00:00:00');
+    // Manually parse the YYYY-MM-DD string to ensure we stay in Local Time
+    const [y, m, d] = dateString.split('-').map(Number);
+    const date = new Date(y, m - 1, d); // Construct date at 00:00 Local Time
+    
     const today = new Date();
-    const tomorrow = new Date();
-    tomorrow.setDate(today.getDate() + 1);
+    today.setHours(0,0,0,0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const isToday = date.toDateString() === today.toDateString();
-    const isTomorrow = date.toDateString() === tomorrow.toDateString();
-
-    if (isToday) return 'Today';
-    if (isTomorrow) return 'Tomorrow';
+    if (date.getTime() === today.getTime()) return 'Today';
+    if (date.getTime() === tomorrow.getTime()) return 'Tomorrow';
 
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-/** Pads a number with leading zeros for display. */
 function pad(number) {
     return number.toString().padStart(2, '0');
 }
 
-// --- Clock Functions (kept for robustness, though not primary) ---
 
-/** Displays the current time in the timer display area. */
+// --- Clock Functions ---
+
 function displayCurrentClock() {
     const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    timerDisplay.textContent = `${pad(hours)}:${pad(minutes)}`;
+    timerDisplay.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
     document.title = "PomoFocus Calendar & Timer";
 }
 
-/** Manages the real-time clock interval. */
 function startClock() {
     if (clockInterval) clearInterval(clockInterval);
     displayCurrentClock();
     clockInterval = setInterval(displayCurrentClock, 10000);
 }
 
-/** Stops the real-time clock interval. */
 function stopClock() {
     if (clockInterval) clearInterval(clockInterval);
     clockInterval = null;
 }
 
 
-// --- Modal Functions (for alerts) ---
+// --- Modal Functions ---
 
 function closeModal() {
     modalContainer.classList.add('hidden');
@@ -100,21 +109,35 @@ function showModal(title, message) {
     modalContainer.classList.add('flex');
 }
 
-// --- Task Storage (Local Simulation) ---
 
-/** Retrieves all tasks from localStorage. */
-function getTasksFromStorage() {
-    const tasksJson = localStorage.getItem(TASKS_KEY);
-    return tasksJson ? JSON.parse(tasksJson) : [];
+// --- SUPABASE TASK LOGIC ---
+
+async function fetchTasks() {
+    if (!currentUser) return;
+
+    taskListContainer.innerHTML = '<p class="text-center text-gray-medium pt-4">Loading tasks...</p>';
+
+    const { data, error } = await supabaseClient
+        .from('tasks')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching tasks:', error);
+        return;
+    }
+
+    globalTasks = data || [];
+    renderTasksForSelectedDate();
+    renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
 }
 
-/** Saves the updated list of tasks to localStorage. */
-function saveTasksToStorage(tasks) {
-    localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
-}
+async function addTask() {
+    if (!currentUser) {
+        showModal('Login Required', 'Please login to save tasks.');
+        return;
+    }
 
-/** Adds a new task to storage. */
-function addTask() {
     const newTaskTitle = document.getElementById('new-task-title');
     const newTaskDuration = document.getElementById('new-task-duration');
     const title = newTaskTitle.value.trim();
@@ -122,74 +145,84 @@ function addTask() {
     const duration = parseInt(newTaskDuration.value);
 
     if (title === '' || date === '' || duration < 1) {
-        showModal('Input Error', 'Please enter a title, valid date, and duration for the task.');
+        showModal('Input Error', 'Please enter a title, valid date, and duration.');
         return;
     }
 
-    const tasks = getTasksFromStorage();
-    const newTask = {
-        id: crypto.randomUUID(),
+    const tempTask = {
+        id: 'temp-' + Date.now(),
+        user_id: currentUser.id,
         title: title,
-        date: date, // YYYY-MM-DD string
-        durationMinutes: duration,
+        date: date,
+        duration: duration,
         completed: false,
-        createdAt: Date.now()
+        created_at: new Date().toISOString()
     };
+    globalTasks.push(tempTask);
+    renderTasksForSelectedDate();
+    
+    const { data, error } = await supabaseClient
+        .from('tasks')
+        .insert([{ user_id: currentUser.id, title: title, date: date, duration: duration }])
+        .select();
 
-    tasks.push(newTask);
-    saveTasksToStorage(tasks);
+    if (error) {
+        console.error('Error adding task:', error);
+        showModal('Error', 'Failed to save task.');
+    } else {
+        globalTasks = globalTasks.filter(t => t.id !== tempTask.id);
+        globalTasks.push(data[0]);
+        renderTasksForSelectedDate();
+        renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+    }
 
-    // Update UI
     newTaskTitle.value = '';
     newTaskDuration.value = '50';
-    renderTasksForSelectedDate();
-    renderCalendar(currentDate.getFullYear(), currentDate.getMonth()); // Refresh calendar for task markers
 }
 
-/** Updates a task's 'completed' status in storage. */
-function toggleTaskDone(taskId, completed) {
-    const tasks = getTasksFromStorage();
-    const taskIndex = tasks.findIndex(t => t.id === taskId);
+async function toggleTaskDone(taskId, completed) {
+    const taskIndex = globalTasks.findIndex(t => t.id === taskId);
     if (taskIndex !== -1) {
-        tasks[taskIndex].completed = completed;
-        saveTasksToStorage(tasks);
+        globalTasks[taskIndex].completed = completed;
         renderTasksForSelectedDate();
-        renderCalendar(currentDate.getFullYear(), currentDate.getMonth()); // Refresh calendar for task markers
+        renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
     }
+
+    const { error } = await supabaseClient
+        .from('tasks')
+        .update({ completed: completed })
+        .eq('id', taskId);
+
+    if (error) console.error('Error updating task:', error);
 }
 
-/** Deletes a task from storage. */
-function deleteTask(taskId) {
-    const tasks = getTasksFromStorage();
-    const updatedTasks = tasks.filter(t => t.id !== taskId);
-    saveTasksToStorage(updatedTasks);
+async function deleteTask(taskId) {
+    globalTasks = globalTasks.filter(t => t.id !== taskId);
     renderTasksForSelectedDate();
     renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
+
+    const { error } = await supabaseClient
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+        
+    if (error) console.error('Error deleting task:', error);
 }
 
-/** Renders the tasks for the currently selected date. */
 function renderTasksForSelectedDate() {
-    const allTasks = getTasksFromStorage();
-
-    // Sort tasks: Incomplete first, then by duration
-    const filteredTasks = allTasks
+    const filteredTasks = globalTasks
         .filter(t => t.date === selectedDateString)
-        .sort((a, b) => (a.completed - b.completed) || (b.durationMinutes - a.durationMinutes));
+        .sort((a, b) => (a.completed - b.completed) || (b.duration - a.duration));
 
-    taskListContainer.innerHTML = ''; // Clear existing list
-
+    taskListContainer.innerHTML = '';
     taskFilterDateDisplay.textContent = formatDate(selectedDateString);
 
     if (filteredTasks.length === 0) {
         taskListContainer.innerHTML = '<p class="text-center text-gray-medium pt-4">No tasks scheduled for this day. Defaulting to Focus (25m).</p>';
-        // If no tasks, switch to Pomodoro mode
-        switchMode('pomodoro');
+        if (!isRunning) switchMode('pomodoro');
         return;
     } else {
-        // If tasks are present, switch back to Pomodoro mode (if not running)
-        if (!isRunning) {
-            switchMode('pomodoro');
-        }
+        if (!isRunning) switchMode('pomodoro');
     }
 
     filteredTasks.forEach(task => {
@@ -206,16 +239,16 @@ function renderTasksForSelectedDate() {
                     class="task-checkbox h-5 w-5 rounded-full border-gray-300 bg-gray-100 checked:bg-primary-color focus:ring-primary-color shrink-0">
                 <div class="flex flex-col min-w-0">
                     <span class="task-title text-base font-medium truncate ${titleClass}" title="${task.title}">${task.title}</span>
-                    <span class="text-xs text-gray-medium">${task.durationMinutes} min focus</span>
+                    <span class="text-xs text-gray-medium">${task.duration} min focus</span>
                 </div>
             </div>
             <div class="flex space-x-2 shrink-0">
-                <button onclick="startTaskFocus('${task.id}', ${task.durationMinutes}, '${task.title}')" 
+                <button onclick="startTaskFocus('${task.id}', ${task.duration}, '${task.title}')" 
                     class="text-sm font-medium py-1 px-3 rounded-lg bg-primary-color text-white hover:opacity-90 transition ${task.completed ? 'hidden' : ''}">
                     Focus
                 </button>
                 <button onclick="deleteTask('${task.id}')" class="text-gray-medium hover:text-red-500 transition p-1 rounded-full hover:bg-red-50" title="Delete Task">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
         `;
@@ -226,33 +259,25 @@ function renderTasksForSelectedDate() {
 
 // --- Calendar Functions ---
 
-/** Updates the global calendar month/year. */
 function changeMonth(delta) {
     currentDate.setMonth(currentDate.getMonth() + delta);
     renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
 }
 
-/** Handles clicking a date on the calendar. */
 function selectDate(dateString, element) {
-    // Do not interrupt a running timer when selecting a date
     if (isRunning) {
         showModal('Timer Running', 'Please pause the timer before changing the selected date.');
         return;
     }
-
-    // Remove 'selected' class from all previous days
     document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
-
-    // Add 'selected' class to the clicked day
     element.classList.add('selected');
 
     selectedDateString = dateString;
-    newTaskDate.value = dateString; // Update new task input date
-    selectedDateDisplay.textContent = formatDate(selectedDateString); // Update new task button label
-    renderTasksForSelectedDate(); // Filter and render tasks, which handles mode switch
+    newTaskDate.value = dateString;
+    selectedDateDisplay.textContent = formatDate(selectedDateString);
+    renderTasksForSelectedDate();
 }
 
-/** Renders the calendar grid for a specific month. */
 function renderCalendar(year, month) {
     const grid = document.getElementById('calendar-grid');
     const display = document.getElementById('month-year-display');
@@ -260,44 +285,28 @@ function renderCalendar(year, month) {
 
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    const todayString = new Date().toISOString().split('T')[0];
-    const allTasks = getTasksFromStorage();
-    const taskDates = new Set(allTasks.map(t => t.date));
+    const todayString = getLocalDateString(new Date()); // FIX: Use manual local date
+    
+    const taskDates = new Set(globalTasks.map(t => t.date));
 
     display.textContent = firstDay.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
-    // Calculate start padding (empty cells before the 1st)
-    let startDay = firstDay.getDay(); // 0 (Sunday) to 6 (Saturday)
+    let startDay = firstDay.getDay(); 
     for (let i = 0; i < startDay; i++) {
-        const emptyCell = document.createElement('div');
-        grid.appendChild(emptyCell);
+        grid.appendChild(document.createElement('div'));
     }
 
-    // Render days
     for (let i = 1; i <= lastDay.getDate(); i++) {
-        const date = new Date(year, month, i);
-        const dateString = date.toISOString().split('T')[0];
+        // FIX: Manually construct date string to avoid timezone shifts (toISOString bug)
+        const dateString = `${year}-${pad(month + 1)}-${pad(i)}`;
+        
         const dayCell = document.createElement('div');
-
         dayCell.textContent = i;
-        dayCell.className = 'calendar-day';
-        dayCell.classList.add('relative', 'aspect-square', 'flex', 'items-center', 'justify-center');
+        dayCell.className = 'calendar-day relative aspect-square flex items-center justify-center';
 
-        // Check for tasks
-        if (taskDates.has(dateString)) {
-            dayCell.classList.add('has-tasks');
-        }
-
-        // Highlight today
-        if (dateString === todayString) {
-            // This class is targeted by CSS for theme changes
-            dayCell.classList.add('border-2', 'border-primary-color'); 
-        }
-
-        // Highlight selected date
-        if (dateString === selectedDateString) {
-            dayCell.classList.add('selected');
-        }
+        if (taskDates.has(dateString)) dayCell.classList.add('has-tasks');
+        if (dateString === todayString) dayCell.classList.add('border-2', 'border-primary-color'); 
+        if (dateString === selectedDateString) dayCell.classList.add('selected');
 
         dayCell.onclick = () => selectDate(dateString, dayCell);
         grid.appendChild(dayCell);
@@ -307,48 +316,33 @@ function renderCalendar(year, month) {
 
 // --- Core Timer Functions ---
 
-/** Updates the timer display and document title. */
 function updateDisplay() {
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
-    const timeStr = `${pad(minutes)}:${pad(seconds)}`;
-    timerDisplay.textContent = timeStr;
-    document.title = timeStr + ` - ${currentMode.toUpperCase()}`;
+    timerDisplay.textContent = `${pad(minutes)}:${pad(seconds)}`;
+    document.title = `${pad(minutes)}:${pad(seconds)} - ${currentMode.toUpperCase()}`;
 }
 
-/** Applies or removes the theme classes based on the current mode. */
 function setTheme(mode) {
-    // 1. Clear all theme classes first
     appBody.classList.remove('matcha-theme', 'blue-theme'); 
-
-    // 2. Apply the specific theme based on mode
-    if (mode === 'longBreak') {
-        appBody.classList.add('matcha-theme');
-    } else if (mode === 'shortBreak') { // Apply blue theme for Short Break
-        appBody.classList.add('blue-theme');
-    } 
-    // Default (pomodoro) needs no class.
+    if (mode === 'longBreak') appBody.classList.add('matcha-theme');
+    else if (mode === 'shortBreak') appBody.classList.add('blue-theme');
 }
 
-/** Switches the timer mode. */
 function switchMode(mode, customDurationMinutes = null) {
     if (isRunning) {
-        showModal('Timer Active', 'Please pause the current timer before switching modes or starting a new task.');
+        showModal('Timer Active', 'Please pause before switching.');
         return;
     }
 
-    stopClock(); // Stop the real-time clock if it was running (reusing existing clock function)
-
+    stopClock();
     clearInterval(timerInterval);
     isRunning = false;
     currentMode = mode;
-    
-    // HIDE SKIP BUTTON
-    skipButton.classList.add('hidden'); // Ensure button is hidden when resetting mode time
+    skipButton.classList.add('hidden');
 
     let durationSeconds = TIMER_DURATIONS[mode];
 
-    // Custom Pomodoro duration based on task assignment
     if (mode === 'pomodoro' && customDurationMinutes !== null) {
         durationSeconds = customDurationMinutes * 60;
         focusedTaskDisplay.textContent = `FOCUS: ${customDurationMinutes} minutes`;
@@ -356,36 +350,27 @@ function switchMode(mode, customDurationMinutes = null) {
     } else {
         activeTaskId = null;
         focusedTaskDisplay.textContent = '';
-        if (mode === 'pomodoro') {
-            statusMessage.textContent = 'Ready to start a default focus session.';
-        } else {
-            statusMessage.textContent = 'Time for a break!';
-        }
+        statusMessage.textContent = mode === 'pomodoro' ? 'Ready to focus.' : 'Time for a break!';
     }
 
     timeLeft = durationSeconds;
-
-    // Apply the theme change BEFORE updating UI elements (ADDED CALL)
     setTheme(mode); 
 
-    // Update UI elements
     startButton.textContent = 'START';
     startButton.classList.remove('animate-none');
     startButton.classList.add('animate-pulse');
 
     cycleCount.textContent = mode === 'pomodoro' ? `#${cycle}` : 'Break!';
 
-    // Update tab styles
     document.querySelectorAll('.mode-tab').forEach(tab => tab.classList.remove('active'));
     document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
 
     updateDisplay();
 }
 
-/** Assigns a task's duration to the pomodoro timer and sets it as active. */
 function startTaskFocus(taskId, durationMinutes, title) {
     if (isRunning) {
-        showModal('Timer Active', 'Please pause the current timer before starting a new task.');
+        showModal('Timer Active', 'Pause timer first.');
         return;
     }
     activeTaskId = taskId;
@@ -394,147 +379,126 @@ function startTaskFocus(taskId, durationMinutes, title) {
     statusMessage.textContent = 'Ready to focus on task!';
 }
 
-/** Main function to start, pause, or resume the timer. */
 function toggleTimer() {
-    // 1. PAUSE LOGIC (Takes absolute priority if running)
+    const clickSound = new Audio('assets/button-click.wav'); 
+    clickSound.currentTime = 0; // Rewind sound to ensure rapid clicks work
+    clickSound.play().catch(e => console.log("Audio play failed", e));
     if (isRunning) {
         clearInterval(timerInterval);
         isRunning = false;
         startButton.textContent = 'RESUME';
         startButton.classList.remove('animate-pulse');
-        
-        // CORRECTION: Keep skip button visible when paused
         skipButton.classList.remove('hidden'); 
         return;
     }
 
-    // 2. START/RESUME LOGIC (Only runs if not running)
-
-    // Check constraints BEFORE starting
     if (timeLeft === 0) {
-        // If the timer is at zero and paused, reset the state
-        if (currentMode === 'pomodoro') {
-            switchMode('pomodoro');
-        } else {
-            // Break timers should reset based on cycle context, but here we just reset the time
-            switchMode(currentMode);
-        }
+        switchMode(currentMode);
         return;
     }
 
-    // Handle starting a Pomodoro session when no task is attached but time is set to 25:00
     if (currentMode === 'pomodoro' && !activeTaskId && timeLeft === TIMER_DURATIONS.pomodoro) {
         focusedTaskDisplay.textContent = 'Default 25-minute Focus';
         statusMessage.textContent = 'Default focus session active.';
     }
 
-    // Stop the clock if it was running (in the no-task state)
     stopClock();
-
-    // If we reach here, we are starting/resuming
     isRunning = true;
     startButton.textContent = 'PAUSE';
     startButton.classList.remove('animate-pulse');
-    
-    // SHOW SKIP BUTTON
     skipButton.classList.remove('hidden'); 
 
     timerInterval = setInterval(() => {
         timeLeft--;
         updateDisplay();
-
-        if (timeLeft <= 0) {
-            handleTimerEnd();
-        }
+        if (timeLeft <= 0) handleTimerEnd();
     }, 1000);
 }
 
-/** Resets the current timer mode back to its initial time. */
 function resetTimer() {
-    // Stop the timer if it's running
     clearInterval(timerInterval);
     isRunning = false;
-    activeTaskId = null; // Clear any active task
-    
-    // HIDE SKIP BUTTON
+    activeTaskId = null;
     skipButton.classList.add('hidden');
-
-    // Call switchMode to reset the time, UI, and state for the current mode
     switchMode(currentMode, null);
-
-    statusMessage.textContent = 'Timer reset. Ready to start.';
+    statusMessage.textContent = 'Timer reset.';
 }
 
-/** Handles actions when the timer reaches zero. */
 function handleTimerEnd() {
     clearInterval(timerInterval);
     isRunning = false;
-
-    // HIDE SKIP BUTTON
     skipButton.classList.add('hidden');
 
-    // Simple sound notification (a quick sine wave beep, synthesized)
-    const audio = new Audio('data:audio/wav;base64,UklGRqj4AABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAAABkYXRh4qj3AAAI');
+    const audio = new Audio('assets/alarm.mp3');
     audio.play().catch(e => console.error("Audio playback failed:", e));
 
     if (currentMode === 'pomodoro') {
         if (activeTaskId) {
-            // Only log task completion if the timer matches the task's duration (simple check)
-            const tasks = getTasksFromStorage();
-            const task = tasks.find(t => t.id === activeTaskId);
-            if (task && task.durationMinutes * 60 === TIMER_DURATIONS.pomodoro) {
-                toggleTaskDone(activeTaskId, true); // Log completion
-            }
-            activeTaskId = null; // Clear active task
+            toggleTaskDone(activeTaskId, true); 
+            activeTaskId = null;
         }
 
-        showModal('Focus Finished!', 'Time for a break! Your progress has been logged.');
-
+        showModal('Focus Finished!', 'Good job! Progress logged.');
         cycle++;
-        if ((cycle - 1) % 4 === 0) {
-            switchMode('longBreak');
-        } else {
-            switchMode('shortBreak');
-        }
+        switchMode((cycle - 1) % 4 === 0 ? 'longBreak' : 'shortBreak');
 
     } else {
-        showModal('Break Finished!', 'Time to get back to work!');
+        showModal('Break Finished!', 'Back to work!');
         switchMode('pomodoro');
     }
-
-    // Ensure the button is reset for the new mode
     startButton.textContent = 'START';
     startButton.classList.add('animate-pulse');
 }
 
-/** NEW: Immediately ends the current timer phase. */
 function skipTimer() {
-    // CORRECTION: Use timeLeft = 1 to trigger the end cleanly on the next interval tick.
-    if (!isRunning && timeLeft === TIMER_DURATIONS[currentMode]) {
-         showModal('Timer Stopped', 'The timer is not running. Press START/RESUME first.');
-         return;
-    }
-    
+    if (!isRunning && timeLeft === TIMER_DURATIONS[currentMode]) return;
     timeLeft = 1; 
     updateDisplay();
 }
 
 
 // --- Initialization ---
+
+async function checkSession() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    
+    const welcomeHeader = document.querySelector('header h1');
+    const authBtns = document.querySelectorAll('.auth-login-btn, .auth-signup-btn');
+
+    if (session) {
+        currentUser = session.user;
+        welcomeHeader.textContent = `Hi, ${currentUser.user_metadata.full_name || 'User'}!`;
+        authBtns.forEach(btn => btn.style.display = 'none');
+        
+        const headerDiv = document.querySelector('header .flex.items-center.space-x-2');
+        const logoutBtn = document.createElement('button');
+        logoutBtn.innerText = 'Logout';
+        logoutBtn.className = 'text-sm font-bold text-gray-medium hover:text-red-500 transition px-2 py-2';
+        logoutBtn.onclick = async () => {
+            await supabaseClient.auth.signOut();
+            window.location.reload();
+        };
+        headerDiv.appendChild(logoutBtn);
+
+        fetchTasks();
+    } else {
+        welcomeHeader.textContent = "Welcome Guest";
+        taskListContainer.innerHTML = '<p class="text-center text-gray-medium pt-4">Please log in to manage tasks.</p>';
+    }
+}
+
 window.onload = function () {
-    // Setup mode tab click handlers
     document.querySelectorAll('.mode-tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
             if (isRunning) {
-                 showModal('Timer Active', 'Please pause the current timer before switching modes.');
+                 showModal('Timer Active', 'Pause first.');
                  return;
             }
-            activeTaskId = null; // Clear active task when manually changing mode
+            activeTaskId = null;
             switchMode(e.target.dataset.mode);
         });
     });
 
-    // Make functions globally accessible for HTML onclick attributes
     window.closeModal = closeModal;
     window.addTask = addTask;
     window.toggleTimer = toggleTimer;
@@ -543,13 +507,13 @@ window.onload = function () {
     window.startTaskFocus = startTaskFocus;
     window.toggleTaskDone = toggleTaskDone;
     window.deleteTask = deleteTask;
-    window.skipTimer = skipTimer; // NEW: Make skipTimer globally accessible
+    window.skipTimer = skipTimer;
+    window.openLogin = () => window.location.href = 'auth.html?mode=login';
+    window.openRegister = () => window.location.href = 'auth.html?mode=signup';
 
-    // Set default date for task input and calendar
     newTaskDate.value = selectedDateString;
     selectedDateDisplay.textContent = formatDate(selectedDateString);
 
-    // Initial render
     renderCalendar(currentDate.getFullYear(), currentDate.getMonth());
-    renderTasksForSelectedDate(); // Load tasks for today initially (and handles mode switch)
+    checkSession();
 };

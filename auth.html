@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication - PomoFocus</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { 'primary-color': '#6D28D9', 'app-bg': '#F9FAFB' },
+                    fontFamily: { sans: ['Montserrat', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+    <style>
+        .auth-field { transition: all 0.3s ease-in-out; max-height: 100px; opacity: 1; overflow: hidden; }
+        .auth-field.hidden-field { max-height: 0; opacity: 0; margin: 0 !important; }
+    </style>
+</head>
+<body class="bg-app-bg font-sans text-gray-800 h-screen flex items-center justify-center p-4 overflow-hidden">
+
+    <div class="bg-white p-8 rounded-2xl shadow-none max-w-sm w-full">
+        <div class="text-center mb-8">
+            <h1 id="form-title" class="text-3xl font-extrabold text-primary-color mb-2">Welcome Back</h1>
+            <p id="form-subtitle" class="text-sm text-gray-500">Please enter your details to sign in.</p>
+        </div>
+
+        <form onsubmit="handleAuth(event)" class="space-y-5">
+            <div id="name-container" class="auth-field hidden-field">
+                <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Full Name</label>
+                <input type="text" id="name" class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-color outline-none transition" placeholder="John Doe">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Email</label>
+                <input type="email" id="email" required class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-color outline-none transition" placeholder="you@example.com">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">Password</label>
+                <input type="password" id="password" required class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-color outline-none transition" placeholder="••••••••">
+            </div>
+
+            <p id="error-msg" class="text-red-500 text-xs text-center hidden"></p>
+
+            <button type="submit" id="submit-btn" class="w-full py-3 rounded-lg bg-primary-color text-white font-bold text-lg hover:opacity-90 transition shadow-lg">
+                Sign In
+            </button>
+        </form>
+
+        <div class="mt-6 text-center text-sm">
+            <span id="toggle-text" class="text-gray-500">Don't have an account?</span>
+            <button onclick="toggleMode()" id="toggle-link" class="font-bold text-primary-color hover:underline ml-1">Sign up</button>
+        </div>
+        
+        <div class="mt-4 text-center">
+            <a href="index.html" class="text-xs text-gray-400 hover:text-gray-600">← Back to Timer</a>
+        </div>
+    </div>
+
+    <script>
+    const SUPABASE_URL = 'https://zgecgmpkjwsoesomzqfs.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnZWNnbXBrandzb2Vzb216cWZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NjAxMzEsImV4cCI6MjA4MDIzNjEzMX0.itaV4d8e2pHoWF4pQYroFepV5sSEPzpNPKAX_zcORCI';
+    
+    // FIX: Renamed to supabaseClient
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let isLoginMode = true;
+
+        function toggleMode() {
+            isLoginMode = !isLoginMode;
+            updateUI();
+        }
+
+        function updateUI() {
+            const nameContainer = document.getElementById('name-container');
+            const title = document.getElementById('form-title');
+            const subtitle = document.getElementById('form-subtitle');
+            const btn = document.getElementById('submit-btn');
+            const toggleText = document.getElementById('toggle-text');
+            const toggleLink = document.getElementById('toggle-link');
+            const nameInput = document.getElementById('name');
+
+            if (isLoginMode) {
+                nameContainer.classList.add('hidden-field');
+                nameInput.required = false;
+                title.textContent = "Welcome Back";
+                subtitle.textContent = "Please enter your details to sign in.";
+                btn.textContent = "Sign In";
+                toggleText.textContent = "Don't have an account?";
+                toggleLink.textContent = "Sign up";
+            } else {
+                nameContainer.classList.remove('hidden-field');
+                nameInput.required = true;
+                title.textContent = "Create Account";
+                subtitle.textContent = "Join us to track your focus journey.";
+                btn.textContent = "Sign Up";
+                toggleText.textContent = "Already have an account?";
+                toggleLink.textContent = "Sign in";
+            }
+        }
+
+        async function handleAuth(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const name = document.getElementById('name').value;
+            const errorMsg = document.getElementById('error-msg');
+            const btn = document.getElementById('submit-btn');
+
+            errorMsg.classList.add('hidden');
+            btn.textContent = "Processing...";
+            btn.disabled = true;
+
+            let result;
+
+            try {
+                if (isLoginMode) {
+                    // Login (FIX: Using supabaseClient)
+                    result = await supabaseClient.auth.signInWithPassword({ email, password });
+                } else {
+                    // Sign Up (FIX: Using supabaseClient)
+                    result = await supabaseClient.auth.signUp({ 
+                        email, 
+                        password,
+                        options: { data: { full_name: name } }
+                    });
+                }
+
+                if (result.error) throw result.error;
+
+                // Success! Redirect.
+                window.location.href = 'index.html';
+
+            } catch (error) {
+                errorMsg.textContent = error.message;
+                errorMsg.classList.remove('hidden');
+                btn.textContent = isLoginMode ? "Sign In" : "Sign Up";
+                btn.disabled = false;
+            }
+        }
+
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('mode') === 'signup') {
+                isLoginMode = false;
+            }
+            updateUI();
+        };
+    </script>
+</body>
+</html>
