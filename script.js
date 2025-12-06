@@ -444,6 +444,10 @@ function startTaskFocus(taskId, durationMinutes, title) {
 
 function toggleTimer() {
     if (isRunning) {
+        const clickSound = new Audio('assets/button-click.wav');
+        clickSound.volume = 0.5; 
+        clickSound.play().catch(e => console.error("Click sound failed:", e));
+
         clearInterval(timerInterval);
         isRunning = false;
         startButton.textContent = 'RESUME';
@@ -456,6 +460,10 @@ function toggleTimer() {
         switchMode(currentMode);
         return;
     }
+
+    const startSound = new Audio('assets/button-click.wav');
+    startSound.volume = 0.5; 
+    startSound.play().catch(e => console.error("Click sound failed:", e));
 
     if (currentMode === 'pomodoro' && !activeTaskId && timeLeft === TIMER_DURATIONS.pomodoro) {
         focusedTaskDisplay.textContent = 'Default 25-minute Focus';
@@ -490,6 +498,7 @@ function handleTimerEnd() {
     skipButton.classList.add('hidden');
 
     const audio = new Audio('assets/alarm.mp3');
+    startSound.volume = 0.6; 
     audio.play().catch(e => console.error("Audio playback failed:", e));
 
     if (currentMode === 'pomodoro') {
