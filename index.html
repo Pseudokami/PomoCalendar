@@ -97,8 +97,14 @@
                 <input id="new-task-title" type="text" placeholder="Task Title (e.g., Thesis Chapter 1)" class="w-full p-2 rounded-lg text-dark-text border border-gray-300 focus:ring-primary-color focus:border-primary-color outline-none mb-3 text-sm">
                 
                 <div class="flex space-x-3 mb-3">
-                    <input id="new-task-date" type="date" title="Due Date" class="w-1/2 p-2 rounded-lg text-dark-text border border-gray-300 focus:ring-primary-color focus:border-primary-color outline-none text-sm">
-                    <input id="new-task-duration" type="number" placeholder="Duration (mins. Default is 25)" title="Estimated Duration in Minutes" value="" min="10" step="5" class="w-1/2 p-2 rounded-lg text-dark-text border border-gray-300 focus:ring-primary-color focus:border-primary-color outline-none text-sm">
+                    <input id="new-task-date" type="date" title="Due Date" 
+                        class="w-5/12 p-2 rounded-lg text-dark-text border border-gray-300 focus:ring-primary-color focus:border-primary-color outline-none text-sm">
+                    
+                    <input id="new-task-duration" type="number" placeholder="Mins" title="Duration (mins)" value="" min="1" 
+                        class="w-4/12 p-2 rounded-lg text-dark-text border border-gray-300 focus:ring-primary-color focus:border-primary-color outline-none text-sm">
+
+                    <input id="new-task-instances" type="number" placeholder="Reps" title="Number of Instances" value="" min="1" max="99" 
+                        class="w-3/12 p-2 rounded-lg text-dark-text border border-gray-300 focus:ring-primary-color focus:border-primary-color outline-none text-sm text-center">
                 </div>
 
                 <button onclick="addTask()" class="w-full text-sm font-medium py-2 px-4 rounded-lg bg-primary-color text-white hover:opacity-90 transition">
