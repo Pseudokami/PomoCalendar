@@ -22,6 +22,8 @@
         .auth-field.hidden-field { max-height: 0; opacity: 0; margin: 0 !important; }
     </style>
 </head>
+
+
 <body class="bg-app-bg font-sans text-gray-800 h-screen flex items-center justify-center p-4 overflow-hidden">
 
     <div class="bg-white p-8 rounded-2xl shadow-none max-w-sm w-full">
@@ -66,8 +68,7 @@
     <script>
     const SUPABASE_URL = 'https://zgecgmpkjwsoesomzqfs.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnZWNnbXBrandzb2Vzb216cWZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NjAxMzEsImV4cCI6MjA4MDIzNjEzMX0.itaV4d8e2pHoWF4pQYroFepV5sSEPzpNPKAX_zcORCI';
-    
-    // FIX: Renamed to supabaseClient
+
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let isLoginMode = true;
@@ -121,10 +122,8 @@
 
             try {
                 if (isLoginMode) {
-                    // Login (FIX: Using supabaseClient)
                     result = await supabaseClient.auth.signInWithPassword({ email, password });
                 } else {
-                    // Sign Up (FIX: Using supabaseClient)
                     result = await supabaseClient.auth.signUp({ 
                         email, 
                         password,
@@ -134,7 +133,6 @@
 
                 if (result.error) throw result.error;
 
-                // Success! Redirect.
                 window.location.href = 'index.html';
 
             } catch (error) {
