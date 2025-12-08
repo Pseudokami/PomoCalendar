@@ -133,6 +133,8 @@ async function addTask() {
 
     const newTaskTitle = document.getElementById('new-task-title');
     const newTaskDuration = document.getElementById('new-task-duration');
+    const newTaskInstances = document.getElementById('new-task-instances'); // <--- NEW LINE
+
     const title = newTaskTitle.value.trim();
     const date = newTaskDate.value;
 
@@ -150,15 +152,20 @@ async function addTask() {
             showModal('Input Error', 'Please only input integers!');
             return;
         }
-
         const durationNum = parseInt(durationInputStr, 10);
-
         if (durationNum < 1) {
             showModal('Input Error', 'Please only input positive integers!');
             return;
         }
-
         duration = (durationNum > 999) ? 999 : durationNum;
+    }
+
+    let targetInstances = 1; // Default
+    if (newTaskInstances) {
+        const val = parseInt(newTaskInstances.value);
+        if (val > 0 && val <= 99) {
+            targetInstances = val;
+        }
     }
 
     if (title === '' || date === '') {
@@ -166,7 +173,6 @@ async function addTask() {
         return;
     }
 
-    // Checks if task with same name exists on the same date (case-insensitive)
     const isDuplicate = globalTasks.some(t => 
         t.title.toLowerCase() === title.toLowerCase() && 
         t.date === date
@@ -177,7 +183,6 @@ async function addTask() {
         return;
     }
 
-
     const tempTask = {
         id: 'temp-' + Date.now(),
         user_id: currentUser.id,
@@ -185,19 +190,31 @@ async function addTask() {
         date: date,
         duration: duration,
         completed: false,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        target_instances: targetInstances,
+        completed_instances: 0
     };
+
     globalTasks.push(tempTask);
     renderTasksForSelectedDate();
     
     const { data, error } = await supabaseClient
         .from('tasks')
-        .insert([{ user_id: currentUser.id, title: title, date: date, duration: duration }])
+        .insert([{ 
+            user_id: currentUser.id, 
+            title: title, 
+            date: date, 
+            duration: duration,
+            target_instances: targetInstances,
+            completed_instances: 0
+        }])
         .select();
 
     if (error) {
         console.error('Error adding task:', error);
         showModal('Error', 'Failed to save task.');
+        globalTasks = globalTasks.filter(t => t.id !== tempTask.id);
+        renderTasksForSelectedDate();
     } else {
         globalTasks = globalTasks.filter(t => t.id !== tempTask.id);
         globalTasks.push(data[0]);
@@ -207,6 +224,7 @@ async function addTask() {
 
     newTaskTitle.value = '';
     newTaskDuration.value = ''; 
+    if (newTaskInstances) newTaskInstances.value = '1';
 }
 
 async function toggleTaskDone(taskId, completed) {
@@ -292,16 +310,32 @@ function renderTasksForSelectedDate() {
 
         li.className = `flex items-center justify-between p-4 rounded-xl transition duration-150 ease-in-out border border-gray-200 ${completedClass}`;
 
+        const currentRep = (task.completed_instances || 0);
+        const totalReps = (task.target_instances || 1);
+        
+        let repBadge = '';
+        if (totalReps > 1) {
+            repBadge = `<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
+                Rep ${currentRep}/${totalReps}
+            </span>`;
+        }
+
         li.innerHTML = `
             <div class="flex items-center space-x-4 min-w-0 flex-1">
                 <input type="checkbox" ${task.completed ? 'checked' : ''} 
                     onchange="toggleTaskDone('${task.id}', this.checked)" 
                     class="task-checkbox h-5 w-5 rounded-full border-gray-300 bg-gray-100 checked:bg-primary-color focus:ring-primary-color shrink-0">
+                
                 <div class="flex flex-col min-w-0">
-                    <span class="task-title text-base font-medium truncate ${titleClass}" title="${task.title}">${task.title}</span>
-                    <span class="text-xs text-gray-medium">${task.duration} min focus</span>
+                    <span class="task-title text-base font-medium truncate ${titleClass}" title="${task.title}">
+                        ${task.title}
+                    </span>
+                    <div class="flex items-center text-xs text-gray-medium mt-0.5">
+                        <span>${task.duration} min focus</span>
+                        ${repBadge} </div>
                 </div>
             </div>
+
             <div class="flex space-x-2 shrink-0">
                 <button onclick="startTaskFocus('${task.id}', ${task.duration}, '${task.title}')" 
                     class="text-sm font-medium py-1 px-3 rounded-lg bg-primary-color text-white hover:opacity-90 transition ${task.completed ? 'hidden' : ''}">
@@ -411,7 +445,6 @@ function switchMode(mode, customDurationMinutes = null) {
         focusedTaskDisplay.textContent = `FOCUS: ${customDurationMinutes} minutes`;
         statusMessage.textContent = 'Focusing on assigned task.';
     } else {
-        activeTaskId = null;
         focusedTaskDisplay.textContent = '';
         statusMessage.textContent = mode === 'pomodoro' ? 'Ready to focus.' : 'Time for a break!';
     }
@@ -492,29 +525,64 @@ function resetTimer() {
     statusMessage.textContent = 'Timer reset.';
 }
 
-function handleTimerEnd() {
+async function handleTimerEnd() {
     clearInterval(timerInterval);
     isRunning = false;
     skipButton.classList.add('hidden');
 
     const audio = new Audio('assets/alarm.mp3');
-    startSound.volume = 0.6; 
     audio.play().catch(e => console.error("Audio playback failed:", e));
 
     if (currentMode === 'pomodoro') {
+        
         if (activeTaskId) {
-            toggleTaskDone(activeTaskId, true); 
-            activeTaskId = null;
+            const taskIndex = globalTasks.findIndex(t => t.id === activeTaskId);
+            
+            if (taskIndex !== -1) {
+                const task = globalTasks[taskIndex];
+                
+                const newCompletedCount = (task.completed_instances || 0) + 1;
+                
+                globalTasks[taskIndex].completed_instances = newCompletedCount;
+
+                if (newCompletedCount >= task.target_instances) {
+                    toggleTaskDone(activeTaskId, true);
+                    activeTaskId = null;
+                    showModal('Task Complete!', 'Great work! You finished all sessions.');
+                } else {
+                    
+                    await supabaseClient
+                        .from('tasks')
+                        .update({ completed_instances: newCompletedCount })
+                        .eq('id', activeTaskId);
+
+                    renderTasksForSelectedDate();
+
+                    showModal('Session Complete!', `Rep ${newCompletedCount} done. Take a break, then Rep ${newCompletedCount + 1}!`);
+                }
+            }
+        } else {
+            showModal('Focus Finished!', 'Good job!');
         }
 
-        showModal('Focus Finished!', 'Good job! Progress logged.');
         cycle++;
         switchMode((cycle - 1) % 4 === 0 ? 'longBreak' : 'shortBreak');
 
     } else {
         showModal('Break Finished!', 'Back to work!');
-        switchMode('pomodoro');
+        if (activeTaskId) {
+            const task = globalTasks.find(t => t.id === activeTaskId);
+            if (task) {
+                switchMode('pomodoro', task.duration);
+                focusedTaskDisplay.textContent = `RESUMING: ${task.title}`;
+            } else {
+                switchMode('pomodoro');
+            }
+        } else {
+            switchMode('pomodoro');
+        }
     }
+    
     startButton.textContent = 'START';
     startButton.classList.add('animate-pulse');
 }
