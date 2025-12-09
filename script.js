@@ -224,7 +224,7 @@ async function addTask() {
 
     newTaskTitle.value = '';
     newTaskDuration.value = ''; 
-    if (newTaskInstances) newTaskInstances.value = '1';
+    if (newTaskInstances) newTaskInstances.value = '';
 }
 
 async function toggleTaskDone(taskId, completed) {
